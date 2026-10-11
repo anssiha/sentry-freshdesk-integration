@@ -1,0 +1,471 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "routes": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+          },
+          "enabled": {
+            "default": true,
+            "type": "boolean"
+          },
+          "sentry": {
+            "type": "object",
+            "properties": {
+              "baseUrl": {
+                "default": "https://sentry.io",
+                "type": "string",
+                "format": "uri"
+              },
+              "org": {
+                "type": "string",
+                "minLength": 1
+              },
+              "projects": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "feedback",
+                  "issues"
+                ]
+              },
+              "tokenSecret": {
+                "type": "string",
+                "pattern": "^[0-9a-zA-Z-]{1,127}$"
+              },
+              "filters": {
+                "default": {},
+                "type": "object",
+                "properties": {
+                  "environment": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                }
+              },
+              "initialLookbackMinutes": {
+                "default": 60,
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "maxPages": {
+                "default": 10,
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "org",
+              "projects",
+              "source",
+              "tokenSecret"
+            ]
+          },
+          "freshdesk": {
+            "type": "object",
+            "properties": {
+              "domain": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9.-]*\\.[a-z]{2,}$"
+              },
+              "apiKeySecret": {
+                "type": "string",
+                "pattern": "^[0-9a-zA-Z-]{1,127}$"
+              },
+              "sentryIdField": {
+                "type": "string",
+                "pattern": "^cf_[a-z0-9_]+$"
+              },
+              "maxTicketsPerRun": {
+                "default": 50,
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "ticket": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "priority": {
+                    "default": 2,
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "const": 1
+                      },
+                      {
+                        "type": "number",
+                        "const": 2
+                      },
+                      {
+                        "type": "number",
+                        "const": 3
+                      },
+                      {
+                        "type": "number",
+                        "const": 4
+                      }
+                    ]
+                  },
+                  "status": {
+                    "default": 2,
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "const": 2
+                      },
+                      {
+                        "type": "number",
+                        "const": 3
+                      },
+                      {
+                        "type": "number",
+                        "const": 4
+                      },
+                      {
+                        "type": "number",
+                        "const": 5
+                      }
+                    ]
+                  },
+                  "groupId": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "tags": {
+                    "default": [],
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32
+                    }
+                  },
+                  "customFields": {
+                    "default": {},
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "boolean"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "value": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "boolean"
+                                }
+                              ]
+                            },
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "text",
+                                "number",
+                                "boolean",
+                                "date"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "value",
+                            "type"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "subjectTemplate": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "descriptionTemplate": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "requester": {
+                    "type": "object",
+                    "properties": {
+                      "fromFeedback": {
+                        "default": true,
+                        "type": "boolean"
+                      },
+                      "fallbackEmail": {
+                        "type": "string",
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      "fallbackName": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "fallbackEmail"
+                    ]
+                  }
+                },
+                "required": [
+                  "subjectTemplate",
+                  "descriptionTemplate",
+                  "requester"
+                ]
+              },
+              "projectOverrides": {
+                "default": {},
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "priority": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "const": 1
+                        },
+                        {
+                          "type": "number",
+                          "const": 2
+                        },
+                        {
+                          "type": "number",
+                          "const": 3
+                        },
+                        {
+                          "type": "number",
+                          "const": 4
+                        }
+                      ]
+                    },
+                    "status": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "const": 2
+                        },
+                        {
+                          "type": "number",
+                          "const": 3
+                        },
+                        {
+                          "type": "number",
+                          "const": 4
+                        },
+                        {
+                          "type": "number",
+                          "const": 5
+                        }
+                      ]
+                    },
+                    "groupId": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 32
+                      }
+                    },
+                    "customFields": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              {
+                                "type": "number"
+                              },
+                              {
+                                "type": "boolean"
+                              }
+                            ]
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  {
+                                    "type": "number"
+                                  },
+                                  {
+                                    "type": "boolean"
+                                  }
+                                ]
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "text",
+                                  "number",
+                                  "boolean",
+                                  "date"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "value",
+                              "type"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      }
+                    },
+                    "subjectTemplate": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "descriptionTemplate": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "requester": {
+                      "type": "object",
+                      "properties": {
+                        "fromFeedback": {
+                          "type": "boolean"
+                        },
+                        "fallbackEmail": {
+                          "type": "string",
+                          "format": "email",
+                          "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                        },
+                        "fallbackName": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "domain",
+              "apiKeySecret",
+              "ticket"
+            ]
+          },
+          "issues": {
+            "type": "object",
+            "properties": {
+              "minEvents": {
+                "default": 1,
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "levels": {
+                "default": [
+                  "error",
+                  "fatal"
+                ],
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "debug",
+                    "info",
+                    "warning",
+                    "error",
+                    "fatal"
+                  ]
+                }
+              },
+              "noteOnRepeat": {
+                "default": false,
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "required": [
+          "name",
+          "sentry",
+          "freshdesk"
+        ]
+      }
+    }
+  },
+  "required": [
+    "routes"
+  ],
+  "title": "Sentry to Freshdesk routes",
+  "description": "Template placeholders: {sentryId}, {shortId}, {project}, {title}, {message}, {culprit}, {url}, {level}, {environment}, {userEmail}, {userName}, {eventCount}, {firstSeen}, {lastSeen}"
+}

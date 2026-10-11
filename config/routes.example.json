@@ -1,0 +1,119 @@
+{
+  "$schema": "./routes.schema.json",
+  "routes": [
+    {
+      "name": "team-a-feedback",
+      "enabled": true,
+      "sentry": {
+        "baseUrl": "https://sentry.io",
+        "org": "my-org",
+        "projects": [
+          "frontend"
+        ],
+        "source": "feedback",
+        "tokenSecret": "team-a-sentry-token",
+        "filters": {
+          "environment": [
+            "production"
+          ]
+        }
+      },
+      "freshdesk": {
+        "domain": "mycompany.freshdesk.com",
+        "apiKeySecret": "team-a-freshdesk-key",
+        "sentryIdField": "cf_sentry_id",
+        "ticket": {
+          "type": "Incident",
+          "priority": 2,
+          "status": 2,
+          "groupId": 123,
+          "tags": [
+            "sentry",
+            "feedback"
+          ],
+          "customFields": {
+            "cf_source": "sentry"
+          },
+          "subjectTemplate": "[{project}] {title}",
+          "descriptionTemplate": "{message}\n\nFrom: {userName}\nSentry: {url}",
+          "requester": {
+            "fromFeedback": true,
+            "fallbackEmail": "sentry-feedback@mycompany.com",
+            "fallbackName": "Sentry Feedback"
+          }
+        }
+      }
+    },
+    {
+      "name": "team-b-errors",
+      "enabled": true,
+      "sentry": {
+        "org": "my-org",
+        "projects": [
+          "backend",
+          "api"
+        ],
+        "source": "issues",
+        "tokenSecret": "team-b-sentry-token",
+        "filters": {
+          "environment": [
+            "production"
+          ]
+        },
+        "initialLookbackMinutes": 60,
+        "maxPages": 10
+      },
+      "freshdesk": {
+        "domain": "mycompany.freshdesk.com",
+        "apiKeySecret": "team-b-freshdesk-key",
+        "maxTicketsPerRun": 20,
+        "ticket": {
+          "type": "Problem",
+          "priority": 3,
+          "tags": [
+            "sentry",
+            "error"
+          ],
+          "customFields": {
+            "cf_source": "sentry",
+            "cf_sentry_level": "{level}",
+            "cf_event_count": {
+              "value": "{eventCount}",
+              "type": "number"
+            },
+            "cf_first_seen": {
+              "value": "{firstSeen}",
+              "type": "date"
+            }
+          },
+          "subjectTemplate": "[{project}] {level}: {title}",
+          "descriptionTemplate": "{message}\n\nCulprit: {culprit}\nEvents: {eventCount}\nFirst seen: {firstSeen}\nEnvironment: {environment}\n\nSentry: {url}",
+          "requester": {
+            "fallbackEmail": "sentry-alerts@mycompany.com",
+            "fallbackName": "Sentry"
+          }
+        },
+        "projectOverrides": {
+          "api": {
+            "groupId": 456,
+            "priority": 4,
+            "tags": [
+              "api"
+            ],
+            "customFields": {
+              "cf_product": "Public API"
+            }
+          }
+        }
+      },
+      "issues": {
+        "minEvents": 5,
+        "levels": [
+          "error",
+          "fatal"
+        ],
+        "noteOnRepeat": false
+      }
+    }
+  ]
+}

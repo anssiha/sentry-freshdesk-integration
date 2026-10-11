@@ -1,0 +1,34 @@
+{
+  "name": "sentry-freshdesk-sync",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Config-driven Azure Function that syncs Sentry feedback and issues into Freshdesk tickets.",
+  "main": "dist/src/functions/*.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "schema": "tsx scripts/generate-schema.ts",
+    "validate-config": "tsx scripts/validate-config.ts",
+    "prestart": "npm run clean && npm run build",
+    "start": "func start"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.3.2",
+    "@azure/functions": "^4.16.5",
+    "@azure/identity": "^4.13.3",
+    "@azure/keyvault-secrets": "^4.11.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

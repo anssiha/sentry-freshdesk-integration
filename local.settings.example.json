@@ -1,0 +1,14 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "SYNC_SCHEDULE": "0 */10 * * * *",
+    "DRY_RUN": "true",
+    "STATE_CONNECTION_STRING": "UseDevelopmentStorage=true",
+    "STATE_TABLE_NAME": "sentrysync",
+    "KEY_VAULT_URL": "",
+    "SECRET_TEAM_A_SENTRY_TOKEN": "sntryu_replace_me",
+    "SECRET_TEAM_A_FRESHDESK_KEY": "replace_me"
+  }
+}

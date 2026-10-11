@@ -1,0 +1,14 @@
+.git*
+.vscode
+local.settings.json
+local.settings.example.json
+test/
+infra/
+scripts/
+coverage/
+*.md
+vitest.config.ts
+__azurite_db*
+__blobstorage__/
+__queuestorage__/
+docs/

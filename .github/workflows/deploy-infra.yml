@@ -1,0 +1,87 @@
+name: Deploy infra
+
+# Creates or updates the Azure resources from infra/main.bicep.
+# Runs a what-if first; the apply job waits for approval if the "production" environment requires it.
+
+on:
+  push:
+    branches: [main]
+    paths: ['infra/**', '.github/workflows/deploy-infra.yml']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Set DRY_RUN on the app. Leave as "keep" to preserve the current value.'
+        type: choice
+        options: [keep, 'true', 'false']
+        default: keep
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-infra
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  APP_NAME: ${{ vars.APP_NAME }}
+  LOCATION: ${{ vars.AZURE_LOCATION || 'westeurope' }}
+
+jobs:
+  what-if:
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      dry_run: ${{ steps.dry.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure resource group
+        run: az group create -n "$RESOURCE_GROUP" -l "$LOCATION" -o none
+
+      # main.bicep sets DRY_RUN from a parameter, so a blind redeploy after go-live would switch dry run back on.
+      - name: Resolve DRY_RUN
+        id: dry
+        run: |
+          value="${{ inputs.dry_run }}"
+          if [ -z "$value" ] || [ "$value" = keep ]; then
+            app=$(az functionapp list -g "$RESOURCE_GROUP" --query "[0].name" -o tsv)
+            value=""
+            if [ -n "$app" ]; then
+              value=$(az functionapp config appsettings list -g "$RESOURCE_GROUP" -n "$app" --query "[?name=='DRY_RUN'].value | [0]" -o tsv)
+            fi
+            value=$(echo "${value:-true}" | tr '[:upper:]' '[:lower:]')
+          fi
+          echo "DRY_RUN will be: $value"
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+
+      - name: What-if
+        run: |
+          az deployment group what-if -g "$RESOURCE_GROUP" -n main -f infra/main.bicep \
+            -p appName="$APP_NAME" dryRun=${{ steps.dry.outputs.value }} \
+            ${{ vars.VAULT_ADMIN_PRINCIPAL_ID && format('-p vaultAdminPrincipalId={0} vaultAdminPrincipalType={1}', vars.VAULT_ADMIN_PRINCIPAL_ID, vars.VAULT_ADMIN_PRINCIPAL_TYPE || 'User') || '' }}
+
+  apply:
+    needs: what-if
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy
+        run: |
+          az deployment group create -g "$RESOURCE_GROUP" -n main -f infra/main.bicep \
+            -p appName="$APP_NAME" dryRun=${{ needs.what-if.outputs.dry_run }} \
+            ${{ vars.VAULT_ADMIN_PRINCIPAL_ID && format('-p vaultAdminPrincipalId={0} vaultAdminPrincipalType={1}', vars.VAULT_ADMIN_PRINCIPAL_ID, vars.VAULT_ADMIN_PRINCIPAL_TYPE || 'User') || '' }} \
+            --query properties.outputs -o json

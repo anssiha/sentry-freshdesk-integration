@@ -1,0 +1,61 @@
+name: Run sync now
+
+# Triggers the timer function on demand and prints counts from App Insights (workflow logs are public in a public repo).
+# Respects the app's current DRY_RUN setting; it does not change it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      wait_seconds:
+        description: 'Seconds to wait before reading logs (App Insights ingestion lag)'
+        default: '90'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Trigger syncTimer
+        id: trigger
+        env:
+          RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+        run: |
+          outputs=$(az deployment group show -g "$RG" -n main --query properties.outputs -o json)
+          app=$(echo "$outputs" | jq -r .functionAppName.value)
+          insights=$(echo "$outputs" | jq -r .appInsightsName.value)
+          echo "insights=$insights" >> "$GITHUB_OUTPUT"
+
+          dry=$(az functionapp config appsettings list -g "$RG" -n "$app" --query "[?name=='DRY_RUN'].value | [0]" -o tsv)
+          echo "::notice::DRY_RUN=$dry on $app"
+
+          key=$(az functionapp keys list -g "$RG" -n "$app" --query masterKey -o tsv)
+          echo "::add-mask::$key"
+          host=$(az functionapp show -g "$RG" -n "$app" --query defaultHostName -o tsv)
+          started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "started=$started" >> "$GITHUB_OUTPUT"
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "https://$host/admin/functions/syncTimer" \
+            -H "x-functions-key: $key" -H 'Content-Type: application/json' -d '{}')
+          echo "Trigger returned HTTP $code"
+          test "$code" = 202
+
+      - name: Wait for logs
+        run: sleep "${{ inputs.wait_seconds }}"
+
+      - name: Show results
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt extension.dynamic_install_allow_preview=true >/dev/null
+          # Workflow logs are public in a public repo. Print counts only: no route names, ticket payloads or error bodies.
+          az monitor app-insights query -g "${{ vars.AZURE_RESOURCE_GROUP }}" --app "${{ steps.trigger.outputs.insights }}" \
+            --analytics-query "traces | where timestamp > datetime(${{ steps.trigger.outputs.started }}) | summarize routesFinished = countif(message startswith 'Route sync finished'), warnings = countif(severityLevel == 2), errors = countif(severityLevel >= 3), wouldCreate = countif(message startswith 'DRY_RUN: would create'), created = countif(message startswith 'Ticket created')" \
+            --query 'tables[0].rows[0]' -o json | jq -r '"routes finished: \(.[0]), warnings: \(.[1]), errors: \(.[2]), dry-run would create: \(.[3]), tickets created: \(.[4])"' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "Details: App Insights -> Logs in the Azure portal."

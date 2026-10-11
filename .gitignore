@@ -1,0 +1,12 @@
+node_modules/
+dist/
+local.settings.json
+# Real routes (org, projects, Freshdesk domain) stay out of git; config/routes.example.json is the committed template.
+config/routes.json
+coverage/
+__azurite_db*
+__blobstorage__/
+__queuestorage__/
+.DS_Store
+*.log
+infra/main.json

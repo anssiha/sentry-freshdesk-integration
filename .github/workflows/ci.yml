@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      # The real config/routes.json is not in git; validate the committed example.
+      - run: npm run validate-config -- config/routes.example.json
+      - run: npm run build
+      - name: Check generated config schema is up to date
+        run: |
+          npm run schema
+          git diff --exit-code config/routes.schema.json
+      - name: Compile Bicep
+        run: az bicep build --file infra/main.bicep --stdout > /dev/null

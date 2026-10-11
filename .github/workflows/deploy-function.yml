@@ -1,0 +1,64 @@
+name: Deploy function
+
+# Builds, tests and publishes the code to the Function App. Routes are not packaged: the app reads them from Key Vault.
+# Infra must exist first (see deploy-infra.yml).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'host.json'
+      - 'tsconfig*.json'
+      - '.funcignore'
+      - '.github/workflows/deploy-function.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-function
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - run: npm run typecheck
+      - run: npm test
+      # Real routes live in Key Vault (secret routes-config), not in the package.
+      - run: npm run validate-config -- config/routes.example.json
+      - run: npm run build
+      - name: Drop dev dependencies from the package
+        run: npm prune --omit=dev
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Find Function App
+        id: app
+        run: |
+          name=$(az deployment group show -g "${{ vars.AZURE_RESOURCE_GROUP }}" -n main --query properties.outputs.functionAppName.value -o tsv)
+          test -n "$name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Install Functions Core Tools
+        run: npm install --global azure-functions-core-tools@4 --unsafe-perm true
+
+      - name: Publish
+        run: func azure functionapp publish "${{ steps.app.outputs.name }}"
